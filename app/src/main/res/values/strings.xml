@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Receiver</string>
+    <string name="RecvfreqText">受信周波数(18000 ~ 22000 [Hz])</string>
+    <string name="RecvfreqEdit">18000 ~ 22000</string>
+    <string name="decibelText">閾値(-10 ~ -90 [dB])</string>
+    <string name="decibelEdit">-10 ~ -90</string>
+    <string name="playing">PLAYING</string>
+    <string name="stopped">STOPPED</string>
+</resources>
