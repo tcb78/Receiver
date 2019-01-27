@@ -10,7 +10,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Vibrator;
-import android.util.Log;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.Switch;
@@ -70,10 +69,6 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
             DECIBEL = Integer.parseInt(decibelEdit.getText().toString());
 
             filename = String.valueOf(System.currentTimeMillis());
-
-
-            //TODO: fftポイントが4096, 8192, 14862のどれでもうまく適用されるように変更
-            //FFTPOINT = 14862;
 
             //受信周波数からFFTポイントを算出
             FFTPOINT = (int)(2 * RECVFREQ / resol);
@@ -147,7 +142,7 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
                         //FFTクラスの作成と値の引き渡し
                         FFT4g fft = new FFT4g(fftSize);
                         double[] FFTdata = new double[fftSize];
-                        for (int i = (int)(2 * 16000 / resol); i < fftSize; i++) {
+                        for(int i = 0; i < fftSize; i++) {
                             FFTdata[i] = (double) s[i];
                         }
                         fft.rdft(1, FFTdata);
@@ -155,18 +150,10 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
                         // パワースペクトル・デシベルの計算
                         double[] ps = new double[fftSize / 2];
                         double[] dbfs = new double[fftSize / 2];
-                        for (int i = (int)(2 * 16000 / resol); i < fftSize; i += 2) {
+                        for(int i = 0; i < fftSize; i += 2) {
                             //dbfs[i / 2] = (int) (20 * Math.log10(Math.sqrt(Math.pow(FFTdata[i], 2) + Math.pow(FFTdata[i + 1], 2)) / dB_baseline));
                             ps[i / 2] = Math.sqrt(Math.pow(FFTdata[i], 2) + Math.pow(FFTdata[i + 1], 2));
                             dbfs[i / 2] = (int) (20 * Math.log10(ps[i / 2] / dB_baseline));
-
-                            /*
-                            // D.E.B.U.G
-                            if(i == FFTPOINT) {
-                                sdlog.put("freq" + filename, String.format("%.3f", FFTPOINT * resol / 2) + " : " + String.valueOf(dbfs[i / 2]));
-                            }
-                        */
-
                         }
 
                         //ドップラー効果考慮
