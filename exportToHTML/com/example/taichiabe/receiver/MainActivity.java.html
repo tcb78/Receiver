@@ -1,0 +1,341 @@
+<html>
+<head>
+<title>MainActivity.java</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.ln { color: #999999; font-weight: normal; font-style: normal; }
+.s0 { color: rgb(0,0,128); font-weight: bold; }
+.s1 { color: rgb(0,0,0); }
+.s2 { color: rgb(40,175,12); font-weight: bold; font-style: italic; }
+.s3 { color: rgb(0,0,255); }
+.s4 { color: rgb(0,128,0); font-weight: bold; }
+.s5 { color: rgb(40,175,12); font-weight: bold; font-style: italic; }
+</style>
+</head>
+<BODY BGCOLOR="#ffffff">
+<TABLE CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#c0c0c0" >
+<TR><TD><CENTER>
+<FONT FACE="Arial, Helvetica" COLOR="#000000">
+MainActivity.java</FONT>
+</center></TD></TR></TABLE>
+<pre>
+<span class="s0">package </span><span class="s1">com.example.taichiabe.receiver; 
+</span><span class="s2">/*=========================================================* 
+ * システム：受信・リアルタイムFFT 
+ *==========================================================*/</span><span class="s1"> 
+</span><span class="s0">import </span><span class="s1">java.nio.ByteBuffer; 
+</span><span class="s0">import </span><span class="s1">java.nio.ByteOrder; 
+</span><span class="s0">import </span><span class="s1">android.app.Activity; 
+</span><span class="s0">import </span><span class="s1">android.media.AudioFormat; 
+</span><span class="s0">import </span><span class="s1">android.media.AudioRecord; 
+</span><span class="s0">import </span><span class="s1">android.media.MediaRecorder; 
+</span><span class="s0">import </span><span class="s1">android.os.Bundle; 
+</span><span class="s0">import </span><span class="s1">android.os.Vibrator; 
+</span><span class="s0">import </span><span class="s1">android.widget.CompoundButton; 
+</span><span class="s0">import </span><span class="s1">android.widget.CompoundButton.OnCheckedChangeListener; 
+</span><span class="s0">import </span><span class="s1">android.widget.Switch; 
+</span><span class="s0">import </span><span class="s1">android.widget.EditText; 
+</span><span class="s0">import </span><span class="s1">android.widget.TextView; 
+ 
+</span><span class="s0">public class </span><span class="s1">MainActivity </span><span class="s0">extends </span><span class="s1">Activity </span><span class="s0">implements </span><span class="s1">OnCheckedChangeListener { 
+ 
+    </span><span class="s2">//サンプリングレート</span><span class="s1"> 
+    </span><span class="s0">public static final int </span><span class="s1">RecvSR = </span><span class="s3">44100</span><span class="s1">; 
+    </span><span class="s2">//FFTのポイント数（2の累乗）</span><span class="s1"> 
+    </span><span class="s0">public static final int </span><span class="s1">fftSize = </span><span class="s3">4096</span><span class="s1">; 
+    </span><span class="s2">//デシベルベースラインの設定</span><span class="s1"> 
+    </span><span class="s0">public static final double </span><span class="s1">dB_baseline = Math.pow(</span><span class="s3">2</span><span class="s1">, </span><span class="s3">15</span><span class="s1">) * fftSize * Math.sqrt(</span><span class="s3">2</span><span class="s1">); 
+    </span><span class="s2">//分解能の計算</span><span class="s1"> 
+    </span><span class="s0">public static final double </span><span class="s1">resol = RecvSR / (</span><span class="s0">double</span><span class="s1">) fftSize; 
+    </span><span class="s0">private </span><span class="s1">Vibrator vib; 
+    </span><span class="s0">private </span><span class="s1">AudioRecord audioRec = </span><span class="s0">null</span><span class="s1">; 
+    </span><span class="s0">boolean </span><span class="s1">bIsRecording = </span><span class="s0">false</span><span class="s1">; 
+    Thread fft; 
+    </span><span class="s0">private </span><span class="s1">TimeMeasure tm; 
+    SdLog sdlog; 
+ 
+    @Override 
+    </span><span class="s0">public void </span><span class="s1">onCreate(Bundle savedInstanceState) { 
+        </span><span class="s0">super</span><span class="s1">.onCreate(savedInstanceState); 
+        setContentView(R.layout.activity_main); 
+ 
+        TextView RecvfreqText = findViewById(R.id.RecvfreqText); 
+        RecvfreqText.setText(R.string.RecvfreqText); 
+        TextView decibelText = findViewById(R.id.decibelText); 
+        decibelText.setText(R.string.decibelText); 
+        Switch switch1 = findViewById(R.id.Switch); 
+        switch1.setOnCheckedChangeListener(</span><span class="s0">this</span><span class="s1">); 
+    } 
+ 
+    @Override 
+    </span><span class="s0">public void </span><span class="s1">onResume() { 
+        </span><span class="s0">super</span><span class="s1">.onResume(); 
+    } 
+ 
+    @Override 
+    </span><span class="s0">public void </span><span class="s1">onCheckedChanged(CompoundButton buttonView, </span><span class="s0">boolean </span><span class="s1">isChecked) { 
+ 
+        </span><span class="s0">if</span><span class="s1">(isChecked) { 
+ 
+            EditText RecvfreqEdit = findViewById(R.id.RecvfreqEdit); 
+            EditText decibelEdit = findViewById(R.id.decibelEdit); 
+ 
+            </span><span class="s0">final int </span><span class="s1">recvFreq = Integer.parseInt(RecvfreqEdit.getText().toString()); 
+            </span><span class="s0">final int </span><span class="s1">decibel = Integer.parseInt(decibelEdit.getText().toString()); 
+ 
+            </span><span class="s0">final </span><span class="s1">String filename = String.valueOf(System.currentTimeMillis()); 
+ 
+            </span><span class="s2">/* 
+            if(RECVFREQ == 18000)      FFTPOINT = 3344; 
+            else if(RECVFREQ == 18500) FFTPOINT = 3436; 
+            else if(RECVFREQ == 19000) FFTPOINT = 3530; 
+            else if(RECVFREQ == 19500) FFTPOINT = 3622; 
+            else if(RECVFREQ == 20000) FFTPOINT = 3716; 
+            else if(RECVFREQ == 20500) FFTPOINT = 3808; 
+            else if(RECVFREQ == 21000) FFTPOINT = 3900; 
+            else if(RECVFREQ == 21500) FFTPOINT = 3994; 
+            else if(RECVFREQ == 22000) FFTPOINT = 4086; 
+            */</span><span class="s1"> 
+ 
+            </span><span class="s2">//実験用デバイスではminBufSize = 3584</span><span class="s1"> 
+            </span><span class="s0">final int </span><span class="s1">minBufSize = AudioRecord.getMinBufferSize( 
+                    RecvSR, 
+                    AudioFormat.CHANNEL_IN_MONO, 
+                    AudioFormat.ENCODING_PCM_16BIT); 
+ 
+            </span><span class="s0">final int </span><span class="s1">bufferSize = minBufSize * </span><span class="s3">4</span><span class="s1">; 
+ 
+            </span><span class="s2">//最終的にFFTクラスの4096以上を確保するためbufferSizeInBytes = RecvBufSize * 4</span><span class="s1"> 
+            audioRec = </span><span class="s0">new </span><span class="s1">AudioRecord( 
+                    MediaRecorder.AudioSource.MIC, 
+                    RecvSR, 
+                    AudioFormat.CHANNEL_IN_MONO, 
+                    AudioFormat.ENCODING_PCM_16BIT, 
+                    bufferSize); 
+ 
+            </span><span class="s2">//Vibratorクラスのインスタンス取得</span><span class="s1"> 
+            vib = (Vibrator)getSystemService(VIBRATOR_SERVICE); 
+ 
+            </span><span class="s2">//TimeMeasureクラスのインスタンス取得</span><span class="s1"> 
+            tm = </span><span class="s0">new </span><span class="s1">TimeMeasure(); 
+ 
+            audioRec.startRecording(); 
+            bIsRecording = </span><span class="s0">true</span><span class="s1">; 
+ 
+            </span><span class="s2">//フーリエ解析スレッドを生成</span><span class="s1"> 
+            fft = </span><span class="s0">new </span><span class="s1">Thread(</span><span class="s0">new </span><span class="s1">Runnable() { 
+                @Override 
+                </span><span class="s0">public void </span><span class="s1">run() { 
+ 
+                    </span><span class="s0">byte</span><span class="s1">[] buf = </span><span class="s0">new byte</span><span class="s1">[bufferSize]; 
+                    </span><span class="s0">while </span><span class="s1">(bIsRecording) { 
+ 
+                        </span><span class="s2">//計測開始</span><span class="s1"> 
+                        tm.start(); 
+ 
+                        audioRec.read(buf, </span><span class="s3">0</span><span class="s1">, buf.length); 
+ 
+                        </span><span class="s2">/* 
+                        //エンディアン変換 
+                        //配列bufをもとにByteBufferオブジェクトbfを作成 
+                        ByteBuffer bf = ByteBuffer.wrap(buf); 
+                        //バッファをクリア（データは削除されない） 
+                        bf.clear(); 
+                        //リトルエンディアンに変更 
+                        bf.order(ByteOrder.LITTLE_ENDIAN); 
+                        short[] s = new short[bufferSize / 2]; 
+                        //位置から容量まで 
+                        for (int i = bf.position(); i &lt; bf.capacity() / 2; i++) { 
+                            //short値を読むための相対getメソッド 
+                            //現在位置の2バイトを読み出す 
+                            s[i] = bf.getShort(); 
+                        } 
+                    */</span><span class="s1"> 
+ 
+                        </span><span class="s2">//エンディアン変換</span><span class="s1"> 
+                        </span><span class="s0">short</span><span class="s1">[] s = endianConversion(buf, bufferSize); 
+ 
+                        </span><span class="s2">/* 
+                        //FFTクラスの作成と値の引き渡し 
+                        FFT4g fft = new FFT4g(fftSize); 
+                        double[] FFTdata = new double[fftSize]; 
+                        for(int i = 0; i &lt; fftSize; i++) { 
+                            FFTdata[i] = (double) s[i]; 
+                        } 
+                        fft.rdft(1, FFTdata); 
+                     */</span><span class="s1"> 
+ 
+                        </span><span class="s2">//FFTクラスの作成と値の引き出し</span><span class="s1"> 
+                        </span><span class="s0">double</span><span class="s1">[] FFTdata = fastFourierTransform(s); 
+ 
+                        </span><span class="s2">/* 
+                        //パワースペクトル・デシベルの計算 
+                        double[] ps = new double[fftSize / 2]; 
+                        //DeciBel Frequency Spectrum 
+                        double[] dbfs = new double[fftSize / 2]; 
+                        for(int i = 0; i &lt; fftSize; i += 2) { 
+                            //dbfs[i / 2] = (int) (20 * Math.log10(Math.sqrt(Math.pow(FFTdata[i], 2) + Math.pow(FFTdata[i + 1], 2)) / dB_baseline)); 
+                            ps[i / 2] = Math.sqrt(Math.pow(FFTdata[i], 2) + Math.pow(FFTdata[i + 1], 2)); 
+                            dbfs[i / 2] = (int) (20 * Math.log10(ps[i / 2] / dB_baseline)); 
+                        } 
+                     */</span><span class="s1"> 
+ 
+                        </span><span class="s2">//パワースペクトル・デシベルの計算</span><span class="s1"> 
+                        </span><span class="s0">double</span><span class="s1">[] dbfs = powerSpectrum(FFTdata); 
+ 
+                        </span><span class="s2">//ドップラー効果を考慮した接近検知</span><span class="s1"> 
+                        detectApproach(recvFreq, decibel, dbfs, filename); 
+ 
+                        </span><span class="s2">//計測終了</span><span class="s1"> 
+                        tm.finish(); 
+                        sdlog.put(</span><span class="s4">&quot;time1-&quot; </span><span class="s1">+ filename, </span><span class="s4">&quot;process time:&quot; </span><span class="s1">+ tm.getResult().substring(</span><span class="s3">0</span><span class="s1">, </span><span class="s3">5</span><span class="s1">)); 
+                        </span><span class="s2">//処理時間出力</span><span class="s1"> 
+                        tm.printResult(); 
+ 
+                    } 
+                    audioRec.stop(); 
+                    audioRec.release(); 
+                } 
+ 
+            }); 
+            </span><span class="s2">//スレッドのスタート</span><span class="s1"> 
+            fft.start(); 
+ 
+        } </span><span class="s0">else </span><span class="s1">{ 
+ 
+            </span><span class="s0">if</span><span class="s1">(audioRec.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) { 
+                vib.cancel(); 
+                audioRec.stop(); 
+                </span><span class="s2">//audioRec.release();</span><span class="s1"> 
+                bIsRecording = </span><span class="s0">false</span><span class="s1">; 
+            } 
+        } 
+    } 
+ 
+    @Override 
+    </span><span class="s0">public void </span><span class="s1">onPause() { 
+        </span><span class="s0">super</span><span class="s1">.onPause(); 
+ 
+        </span><span class="s0">if</span><span class="s1">(audioRec.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) { 
+            audioRec.stop(); 
+            bIsRecording = </span><span class="s0">false</span><span class="s1">; 
+        } 
+    } 
+ 
+    @Override 
+    </span><span class="s0">public void </span><span class="s1">onDestroy() { 
+        </span><span class="s0">super</span><span class="s1">.onDestroy(); 
+ 
+        </span><span class="s0">if</span><span class="s1">(audioRec.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) { 
+            audioRec.stop(); 
+            audioRec.release(); 
+            bIsRecording = </span><span class="s0">false</span><span class="s1">; 
+        } 
+    } 
+ 
+    </span><span class="s2">/** 
+     * エンディアン変換 
+     * </span><span class="s5">@param   </span><span class="s2">buf   受信バッファデータ 
+     * </span><span class="s5">@param   </span><span class="s2">bufferSize    受信バッファサイズ 
+     * </span><span class="s5">@return  </span><span class="s2">s    エンディアン変換後short型データ 
+     */</span><span class="s1"> 
+    </span><span class="s0">public short</span><span class="s1">[] endianConversion(</span><span class="s0">byte</span><span class="s1">[] buf, </span><span class="s0">int </span><span class="s1">bufferSize) { 
+ 
+        </span><span class="s2">//エンディアン変換</span><span class="s1"> 
+        </span><span class="s2">//配列bufをもとにByteBufferオブジェクトbfを作成</span><span class="s1"> 
+        ByteBuffer bf = ByteBuffer.wrap(buf); 
+        </span><span class="s2">//バッファをクリア（データは削除されない）</span><span class="s1"> 
+        bf.clear(); 
+        </span><span class="s2">//リトルエンディアンに変更</span><span class="s1"> 
+        bf.order(ByteOrder.LITTLE_ENDIAN); 
+        </span><span class="s0">short</span><span class="s1">[] s = </span><span class="s0">new short</span><span class="s1">[bufferSize / </span><span class="s3">2</span><span class="s1">]; 
+        </span><span class="s2">//位置から容量まで</span><span class="s1"> 
+        </span><span class="s0">for </span><span class="s1">(</span><span class="s0">int </span><span class="s1">i = bf.position(); i &lt; bf.capacity() / </span><span class="s3">2</span><span class="s1">; i++) { 
+            </span><span class="s2">//short値を読むための相対getメソッド</span><span class="s1"> 
+            </span><span class="s2">//現在位置の2バイトを読み出す</span><span class="s1"> 
+            s[i] = bf.getShort(); 
+        } 
+        </span><span class="s0">return </span><span class="s1">s; 
+    } 
+     
+    </span><span class="s2">/** 
+     * 高速フーリエ変換 
+     * </span><span class="s5">@param   </span><span class="s2">s  エンディアン変換後データ 
+     * </span><span class="s5">@return  </span><span class="s2">FFTdata     フーリエ変換後データ 
+     */</span><span class="s1"> 
+    </span><span class="s0">public double</span><span class="s1">[] fastFourierTransform(</span><span class="s0">short</span><span class="s1">[] s) { 
+ 
+        </span><span class="s2">//FFTクラスの作成と値の引き渡し</span><span class="s1"> 
+        FFT4g fft = </span><span class="s0">new </span><span class="s1">FFT4g(fftSize); 
+        </span><span class="s0">double</span><span class="s1">[] FFTdata = </span><span class="s0">new double</span><span class="s1">[fftSize]; 
+        </span><span class="s0">for</span><span class="s1">(</span><span class="s0">int </span><span class="s1">i = </span><span class="s3">0</span><span class="s1">; i &lt; fftSize; i++) { 
+            FFTdata[i] = (</span><span class="s0">double</span><span class="s1">) s[i]; 
+        } 
+        fft.rdft(</span><span class="s3">1</span><span class="s1">, FFTdata); 
+         
+        </span><span class="s0">return </span><span class="s1">FFTdata; 
+    } 
+ 
+    </span><span class="s2">/** 
+     * パワースペクトル・デシベルの計算 
+     * </span><span class="s5">@param   </span><span class="s2">FFTdata     フーリエ変換後のデータ 
+     * </span><span class="s5">@return  </span><span class="s2">dbfs        デシベル値 
+     */</span><span class="s1"> 
+    </span><span class="s0">public double</span><span class="s1">[] powerSpectrum(</span><span class="s0">double</span><span class="s1">[] FFTdata) { 
+ 
+        </span><span class="s2">//パワースペクトル・デシベルの計算</span><span class="s1"> 
+        </span><span class="s0">double</span><span class="s1">[] ps = </span><span class="s0">new double</span><span class="s1">[fftSize / </span><span class="s3">2</span><span class="s1">]; 
+        </span><span class="s2">//DeciBel Frequency Spectrum</span><span class="s1"> 
+        </span><span class="s0">double</span><span class="s1">[] dbfs = </span><span class="s0">new double</span><span class="s1">[fftSize / </span><span class="s3">2</span><span class="s1">]; 
+        </span><span class="s0">for</span><span class="s1">(</span><span class="s0">int </span><span class="s1">i = </span><span class="s3">0</span><span class="s1">; i &lt; fftSize; i += </span><span class="s3">2</span><span class="s1">) { 
+            </span><span class="s2">//dbfs[i / 2] = (int) (20 * Math.log10(Math.sqrt(Math.pow(FFTdata[i], 2) + Math.pow(FFTdata[i + 1], 2)) / dB_baseline));</span><span class="s1"> 
+            ps[i / </span><span class="s3">2</span><span class="s1">] = Math.sqrt(Math.pow(FFTdata[i], </span><span class="s3">2</span><span class="s1">) + Math.pow(FFTdata[i + </span><span class="s3">1</span><span class="s1">], </span><span class="s3">2</span><span class="s1">)); 
+            dbfs[i / </span><span class="s3">2</span><span class="s1">] = (</span><span class="s0">int</span><span class="s1">) (</span><span class="s3">20 </span><span class="s1">* Math.log10(ps[i / </span><span class="s3">2</span><span class="s1">] / dB_baseline)); 
+        } 
+        </span><span class="s0">return </span><span class="s1">dbfs; 
+ 
+    } 
+ 
+    </span><span class="s2">/** 
+     * 接近検知アルゴリズム 
+     * </span><span class="s5">@param </span><span class="s2">freq  受信周波数 
+     * </span><span class="s5">@param </span><span class="s2">db    検知デシベル値 
+     * </span><span class="s5">@param </span><span class="s2">fs    デシベル値周波数成分 
+     * </span><span class="s5">@param </span><span class="s2">filename ファイル名 
+     */</span><span class="s1"> 
+    </span><span class="s0">public void </span><span class="s1">detectApproach(</span><span class="s0">int </span><span class="s1">freq, </span><span class="s0">double </span><span class="s1">db, </span><span class="s0">double</span><span class="s1">[] fs, String filename) { 
+ 
+        </span><span class="s2">//ドップラー効果考慮 Doppler Effect</span><span class="s1"> 
+        </span><span class="s2">//500Hzの幅で接近検知</span><span class="s1"> 
+        </span><span class="s0">int </span><span class="s1">de_startpoint = pointSetting(freq); 
+        </span><span class="s0">int </span><span class="s1">de_endpoint = pointSetting(freq + </span><span class="s3">500</span><span class="s1">); 
+ 
+        </span><span class="s0">for</span><span class="s1">(</span><span class="s0">int </span><span class="s1">j = de_startpoint / </span><span class="s3">2</span><span class="s1">; j &lt; de_endpoint / </span><span class="s3">2</span><span class="s1">; j++) { 
+            </span><span class="s0">if</span><span class="s1">(fs[j] &gt;= db) { 
+                </span><span class="s2">//検知周波数</span><span class="s1"> 
+                sdlog.put(</span><span class="s4">&quot;freq1-&quot; </span><span class="s1">+ filename, String.format(</span><span class="s4">&quot;%.3f&quot;</span><span class="s1">, j * resol) + </span><span class="s4">&quot; : &quot; </span><span class="s1">+ String.valueOf(fs[j])); 
+                </span><span class="s2">//インスタンス取得が外だから振動しない可能性あり</span><span class="s1"> 
+                vib.cancel(); 
+                vib.vibrate(</span><span class="s3">200</span><span class="s1">); 
+                </span><span class="s0">break</span><span class="s1">; 
+            } 
+        } 
+    } 
+ 
+    </span><span class="s2">/** 
+     * 周波数からフレーム設定 
+     * </span><span class="s5">@param </span><span class="s2">freq  周波数 
+     * </span><span class="s5">@return  </span><span class="s2">フレーム 
+     */</span><span class="s1"> 
+    </span><span class="s0">public int </span><span class="s1">pointSetting(</span><span class="s0">int </span><span class="s1">freq) { 
+ 
+        </span><span class="s0">int </span><span class="s1">point = (</span><span class="s0">int</span><span class="s1">)(</span><span class="s3">2 </span><span class="s1">* freq / resol); 
+        </span><span class="s0">if</span><span class="s1">(point % </span><span class="s3">2 </span><span class="s1">== </span><span class="s3">1</span><span class="s1">) { 
+            point++; 
+        } 
+        </span><span class="s0">return </span><span class="s1">point; 
+    } 
+} 
+</span></pre>
+</body>
+</html>

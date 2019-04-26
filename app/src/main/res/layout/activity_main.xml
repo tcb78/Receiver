@@ -7,18 +7,18 @@
     tools:context=".MainActivity">
 
     <TextView
-        android:id="@+id/RecvfreqText"
+        android:id="@+id/receivingFreqText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
-        tools:text="@string/RecvfreqText" />
+        tools:text="@string/receivingFreqText" />
 
     <EditText
-        android:id="@+id/RecvfreqEdit"
+        android:id="@+id/receivingFreqEdit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/RecvfreqText"
-        android:hint="@string/RecvfreqEdit"
+        app:layout_constraintTop_toBottomOf="@+id/receivingFreqText"
+        android:hint="@string/receivingFreqEdit"
         android:inputType="numberSigned"
         android:textSize="12sp" />
 
@@ -26,7 +26,7 @@
         android:id="@+id/decibelText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/RecvfreqEdit"
+        app:layout_constraintTop_toBottomOf="@+id/receivingFreqEdit"
         tools:text="@string/decibelText" />
 
     <EditText
@@ -39,7 +39,7 @@
         android:textSize="12sp" />
 
     <Switch
-        android:id="@+id/Switch"
+        android:id="@+id/switch1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toBottomOf="@+id/decibelEdit"
