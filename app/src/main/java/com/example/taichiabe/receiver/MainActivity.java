@@ -44,8 +44,8 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
         receivingFreqText.setText(R.string.receivingFreqText);
         TextView decibelText = findViewById(R.id.decibelText);
         decibelText.setText(R.string.decibelText);
-        Switch switch1 = findViewById(R.id.switch1);
-        switch1.setOnCheckedChangeListener(this);
+        Switch receivingSwitch = findViewById(R.id.receivingSwitch);
+        receivingSwitch.setOnCheckedChangeListener(this);
     }
 
     @Override
@@ -65,18 +65,6 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
             final int DECIBEL = Integer.parseInt(decibelEdit.getText().toString());
 
             final String FILENAME = String.valueOf(System.currentTimeMillis());
-
-            /*
-            if(RECVFREQ == 18000)      FFTPOINT = 3344;
-            else if(RECVFREQ == 18500) FFTPOINT = 3436;
-            else if(RECVFREQ == 19000) FFTPOINT = 3530;
-            else if(RECVFREQ == 19500) FFTPOINT = 3622;
-            else if(RECVFREQ == 20000) FFTPOINT = 3716;
-            else if(RECVFREQ == 20500) FFTPOINT = 3808;
-            else if(RECVFREQ == 21000) FFTPOINT = 3900;
-            else if(RECVFREQ == 21500) FFTPOINT = 3994;
-            else if(RECVFREQ == 22000) FFTPOINT = 4086;
-            */
 
             //実験用デバイスではminBufSize = 3584
             final int MIN_BUFFER_SIZE = AudioRecord.getMinBufferSize(
@@ -120,16 +108,15 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
                         //FFTクラスの作成と値の引き出し
                         double[] fftData = fastFourierTransform(shortData);
                         //パワースペクトル・デシベルの計算
-                        double[] decibelFrequencySpectrum = computePowerSpectrum(fftData);
+                        double[] spectrum = computePowerSpectrum(fftData);
                         //ドップラー効果を考慮した接近検知
-                        detectApproaching(RECEIVING_FREQ, DECIBEL, decibelFrequencySpectrum, FILENAME);
+                        detectApproaching(RECEIVING_FREQ, DECIBEL, spectrum, FILENAME);
 
                         //計測終了
                         tm.finishMeasure();
                         sdlog.put("time1-" + FILENAME, "process time:" + tm.measureTimeSec().substring(0, 5));
                         //処理時間出力
                         tm.printTimeSec();
-
                     }
                     audioRec.stop();
                     audioRec.release();
@@ -187,8 +174,11 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
         //リトルエンディアンに変更
         bf.order(ByteOrder.LITTLE_ENDIAN);
         short[] shortData = new short[bufferSize / 2];
+
+        int bfFirst = bf.position();
+        int bfLast = bf.capacity() / 2;
         //位置から容量まで
-        for (int i = bf.position(); i < bf.capacity() / 2; i++) {
+        for (int i = bfFirst; i < bfLast; i++) {
             //short値を読むための相対getメソッド
             //現在位置の2バイトを読み出す
             shortData[i] = bf.getShort();
@@ -207,7 +197,7 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
         FFT4g fft = new FFT4g(FFT_SIZE);
         double[] fftData = new double[FFT_SIZE];
         for(int i = 0; i < FFT_SIZE; i++) {
-            fftData[i] = (double) shortData[i];
+            fftData[i] = (double)shortData[i];
         }
         fft.rdft(1, fftData);
 
@@ -220,37 +210,35 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
      * @return  decibelFrequencySpectrum    デシベル値
      */
     public double[] computePowerSpectrum(double[] fftData) {
-
         //パワースペクトル・デシベルの計算
-        double[] powerSpectrum = new double[FFT_SIZE / 2];
+        double[] absoluteData = new double[FFT_SIZE / 2];
         //DeciBel Frequency Spectrum
-        double[] decibelFrequencySpectrum = new double[FFT_SIZE / 2];
+        double[] spectrum = new double[FFT_SIZE / 2];
         for(int i = 0; i < FFT_SIZE; i += 2) {
-            //dbfs[i / 2] = (int) (20 * Math.log10(Math.sqrt(Math.pow(FFTdata[i], 2) + Math.pow(FFTdata[i + 1], 2)) / dB_baseline));
-            powerSpectrum[i / 2] = Math.sqrt(Math.pow(fftData[i], 2) + Math.pow(fftData[i + 1], 2));
-            decibelFrequencySpectrum[i / 2] = (int) (20 * Math.log10(powerSpectrum[i / 2] / DB_BASELINE));
+            absoluteData[i / 2] = Math.sqrt(Math.pow(fftData[i], 2) + Math.pow(fftData[i + 1], 2));
+            spectrum[i / 2] = (int) (20 * Math.log10(absoluteData[i / 2] / DB_BASELINE));
         }
-        return decibelFrequencySpectrum;
+        return spectrum;
     }
 
     /**
      * 接近検知アルゴリズム
-     * @param freq          受信周波数
-     * @param decibel       検知デシベル値
-     * @param frequencySpectrum デシベル値周波数成分
-     * @param filename      ファイル名
+     * @param freq 受信周波数
+     * @param decibel 検知デシベル値
+     * @param spectrum デシベル値周波数成分
+     * @param filename ファイル名
      */
-    public void detectApproaching(int freq, double decibel, double[] frequencySpectrum, String filename) {
+    public void detectApproaching(int freq, double decibel, double[] spectrum, String filename) {
 
         //ドップラー効果考慮 Doppler Effect
         //500Hzの幅で接近検知
-        int de_first = pointSetting(freq);
-        int de_last = pointSetting(freq + 500);
+        int detectFrameBegin = pointSetting(freq) / 2;
+        int deteceFrameEnd = pointSetting(freq + 500) / 2;
 
-        for(int j = de_first / 2; j < de_last / 2; j++) {
-            if(frequencySpectrum[j] >= decibel) {
+        for(int i = detectFrameBegin; i < deteceFrameEnd; i++) {
+            if(spectrum[i] >= decibel) {
                 //検知周波数
-                sdlog.put("freq1-" + filename, String.format(Locale.US, "%.3f", j * RESOLUTION) + " : " + String.valueOf(frequencySpectrum[j]));
+                sdlog.put("freq1-" + filename, String.format(Locale.US, "%.3f", i * RESOLUTION) + " : " + spectrum[i]);
                 //インスタンス取得が外だから振動しない可能性あり
                 vib.cancel();
                 vib.vibrate(200);
@@ -261,11 +249,10 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
 
     /**
      * 周波数からフレーム設定
-     * @param   freq    周波数
-     * @return  point   フレーム
+     * @param freq 周波数
+     * @return フレーム
      */
     public int pointSetting(int freq) {
-
         int point = (int)(2 * freq / RESOLUTION);
         if(point % 2 == 1) {
             point++;
