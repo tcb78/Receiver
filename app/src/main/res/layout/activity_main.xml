@@ -23,18 +23,18 @@
         android:textSize="12sp" />
 
     <TextView
-        android:id="@+id/decibelText"
+        android:id="@+id/thresholdText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toBottomOf="@+id/receivingFreqEdit"
-        tools:text="@string/decibelText" />
+        tools:text="@string/thresholdText" />
 
     <EditText
-        android:id="@+id/decibelEdit"
+        android:id="@+id/thresholdEdit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/decibelText"
-        android:hint="@string/decibelEdit"
+        app:layout_constraintTop_toBottomOf="@+id/thresholdText"
+        android:hint="@string/thresholdEdit"
         android:inputType="numberSigned"
         android:textSize="12sp" />
 
@@ -42,7 +42,7 @@
         android:id="@+id/receivingSwitch"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/decibelEdit"
+        app:layout_constraintTop_toBottomOf="@+id/thresholdEdit"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         android:textOn="@string/playing"
