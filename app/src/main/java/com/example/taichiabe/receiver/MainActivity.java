@@ -22,7 +22,7 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
 
     //サンプリングレート
     public static final int SAMPLING_RATE = 44100;
-    //FFTのポイント数（2の累乗）
+    //FFTのフレーム数（2の累乗）
     public static final int FFT_SIZE = 4096;
     //デシベルベースラインの設定
     public static final double DB_BASELINE = Math.pow(2, 15) * FFT_SIZE * Math.sqrt(2);
@@ -44,8 +44,8 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
         receivingFreqText.setText(R.string.receivingFreqText);
         TextView decibelText = findViewById(R.id.decibelText);
         decibelText.setText(R.string.decibelText);
-        Switch switch1 = findViewById(R.id.switch1);
-        switch1.setOnCheckedChangeListener(this);
+        Switch receivingSwitch = findViewById(R.id.receivingSwitch);
+        receivingSwitch.setOnCheckedChangeListener(this);
     }
 
     @Override
@@ -187,8 +187,12 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
         //リトルエンディアンに変更
         bf.order(ByteOrder.LITTLE_ENDIAN);
         short[] shortData = new short[bufferSize / 2];
+
+        int bfFirst = bf.position();
+        int bfLast = bf.capacity() / 2;
         //位置から容量まで
-        for (int i = bf.position(); i < bf.capacity() / 2; i++) {
+        //FIXME:変数
+        for (int i = bfFirst; i < bfLast; i++) {
             //short値を読むための相対getメソッド
             //現在位置の2バイトを読み出す
             shortData[i] = bf.getShort();
@@ -237,20 +241,20 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
      * 接近検知アルゴリズム
      * @param freq          受信周波数
      * @param decibel       検知デシベル値
-     * @param frequencySpectrum デシベル値周波数成分
+     * @param decibelFrequencySpectrum  デシベル値周波数成分
      * @param filename      ファイル名
      */
-    public void detectApproaching(int freq, double decibel, double[] frequencySpectrum, String filename) {
+    public void detectApproaching(int freq, double decibel, double[] decibelFrequencySpectrum, String filename) {
 
         //ドップラー効果考慮 Doppler Effect
         //500Hzの幅で接近検知
-        int de_first = pointSetting(freq);
-        int de_last = pointSetting(freq + 500);
-
-        for(int j = de_first / 2; j < de_last / 2; j++) {
-            if(frequencySpectrum[j] >= decibel) {
+        int deFirstFrame = frameSetting(freq) / 2;
+        int deLastFrame = frameSetting(freq + 500) / 2;
+        //FIXME:/2
+        for(int j = deFirstFrame; j < deLastFrame; j++) {
+            if(decibelFrequencySpectrum[j] > decibel) {
                 //検知周波数
-                sdlog.put("freq1-" + filename, String.format(Locale.US, "%.3f", j * RESOLUTION) + " : " + String.valueOf(frequencySpectrum[j]));
+                sdlog.put("freq1-" + filename, String.format(Locale.US, "%.3f", j * RESOLUTION) + " : " + String.valueOf(decibelFrequencySpectrum[j]));
                 //インスタンス取得が外だから振動しない可能性あり
                 vib.cancel();
                 vib.vibrate(200);
@@ -262,14 +266,14 @@ public class MainActivity extends Activity implements OnCheckedChangeListener {
     /**
      * 周波数からフレーム設定
      * @param   freq    周波数
-     * @return  point   フレーム
+     * @return  frame   フレーム
      */
-    public int pointSetting(int freq) {
+    public int frameSetting(int freq) {
 
-        int point = (int)(2 * freq / RESOLUTION);
-        if(point % 2 == 1) {
-            point++;
+        int frame = (int)(2 * freq / RESOLUTION);
+        if(frame % 2 == 1) {
+            frame++;
         }
-        return point;
+        return frame;
     }
 }
